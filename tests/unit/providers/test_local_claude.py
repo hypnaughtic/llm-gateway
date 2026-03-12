@@ -364,6 +364,113 @@ class TestLocalClaudeProvider:
         assert wrapper is not None
         assert wrapper["result"] == "hello"
 
+    @pytest.mark.asyncio
+    async def test_image_files_uses_allowed_tools_read(self) -> None:
+        """When image_files is provided, --allowedTools Read replaces --tools ''."""
+        from llm_gateway.providers.local_claude import LocalClaudeProvider
+
+        with patch("shutil.which", return_value="/usr/bin/claude"):
+            provider = LocalClaudeProvider()
+
+        wrapper = {"result": json.dumps({"answer": "image_eval"})}
+        json_output = json.dumps(wrapper)
+
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(
+            return_value=(json_output.encode(), b""),
+        )
+        mock_proc.returncode = 0
+
+        captured_cmd: list[str] = []
+
+        async def capture_exec(*args: str, **kwargs: object) -> AsyncMock:
+            captured_cmd.extend(args)
+            return mock_proc
+
+        with patch("asyncio.create_subprocess_exec", side_effect=capture_exec):
+            resp = await provider.complete(
+                messages=[{"role": "user", "content": "evaluate this image"}],
+                response_model=_TestModel,
+                model="local",
+                image_files=["/tmp/test_image.png"],
+            )
+
+        assert resp.content.answer == "image_eval"
+        assert "--allowedTools" in captured_cmd
+        assert "Read" in captured_cmd
+        assert "--tools" not in captured_cmd
+
+    @pytest.mark.asyncio
+    async def test_no_image_files_uses_tools_empty(self) -> None:
+        """Without image_files, --tools '' disables all tools."""
+        from llm_gateway.providers.local_claude import LocalClaudeProvider
+
+        with patch("shutil.which", return_value="/usr/bin/claude"):
+            provider = LocalClaudeProvider()
+
+        wrapper = {"result": json.dumps({"answer": "text_only"})}
+        json_output = json.dumps(wrapper)
+
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(
+            return_value=(json_output.encode(), b""),
+        )
+        mock_proc.returncode = 0
+
+        captured_cmd: list[str] = []
+
+        async def capture_exec(*args: str, **kwargs: object) -> AsyncMock:
+            captured_cmd.extend(args)
+            return mock_proc
+
+        with patch("asyncio.create_subprocess_exec", side_effect=capture_exec):
+            await provider.complete(
+                messages=[{"role": "user", "content": "hello"}],
+                response_model=_TestModel,
+                model="local",
+            )
+
+        assert "--tools" in captured_cmd
+        assert "--allowedTools" not in captured_cmd
+
+    @pytest.mark.asyncio
+    async def test_image_files_prepends_read_instructions(self) -> None:
+        """Image files add read instructions to the prompt."""
+        from llm_gateway.providers.local_claude import LocalClaudeProvider
+
+        with patch("shutil.which", return_value="/usr/bin/claude"):
+            provider = LocalClaudeProvider()
+
+        wrapper = {"result": json.dumps({"answer": "ok"})}
+        json_output = json.dumps(wrapper)
+
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(
+            return_value=(json_output.encode(), b""),
+        )
+        mock_proc.returncode = 0
+
+        captured_cmd: list[str] = []
+
+        async def capture_exec(*args: str, **kwargs: object) -> AsyncMock:
+            captured_cmd.extend(args)
+            return mock_proc
+
+        with patch("asyncio.create_subprocess_exec", side_effect=capture_exec):
+            await provider.complete(
+                messages=[{"role": "user", "content": "eval"}],
+                response_model=_TestModel,
+                model="local",
+                image_files=["/tmp/img1.png", "/tmp/img2.png"],
+            )
+
+        # The prompt is passed via -p flag, which is the arg after "-p"
+        p_index = captured_cmd.index("-p")
+        prompt = captured_cmd[p_index + 1]
+        assert "/tmp/img1.png" in prompt
+        assert "/tmp/img2.png" in prompt
+        assert "Read tool" in prompt
+
 
 @pytest.mark.unit
 class TestHelperFunctions:

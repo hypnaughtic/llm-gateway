@@ -354,6 +354,7 @@ class TestCustomProviderRegistration:
                 model: str,
                 max_tokens: int = 4096,
                 temperature: float = 0.0,
+                image_files: Sequence[str] | None = None,
             ) -> LLMResponse[_T]:
                 content = response_model.model_validate(  # type: ignore[union-attr]
                     {"greeting": "echo_hello"}

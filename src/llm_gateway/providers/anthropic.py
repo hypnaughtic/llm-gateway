@@ -69,8 +69,14 @@ class AnthropicProvider:
         model: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.0,
+        image_files: Sequence[str] | None = None,
     ) -> LLMResponse[T]:
-        """Call Anthropic API and return structured response with usage."""
+        """Call Anthropic API and return structured response with usage.
+
+        Note: image_files is accepted for protocol compatibility but not yet
+        implemented for the Anthropic provider. Future versions may use the
+        Messages API vision capability.
+        """
         effective_model = model or self.DEFAULT_MODEL
         start = time.monotonic()
 

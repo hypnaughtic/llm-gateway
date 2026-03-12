@@ -32,6 +32,7 @@ class EchoProvider:
         model: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.0,
+        image_files: Sequence[str] | None = None,
     ) -> LLMResponse[T]:
         effective_model = model or "echo-v1"
         last_msg = messages[-1]["content"] if messages else "empty"

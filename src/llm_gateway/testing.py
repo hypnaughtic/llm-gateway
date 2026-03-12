@@ -106,6 +106,7 @@ class FakeLLMProvider:
         model: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.0,
+        image_files: Sequence[str] | None = None,
     ) -> LLMResponse[T]:
         """Return pre-configured or factory-built response.
 
@@ -115,6 +116,7 @@ class FakeLLMProvider:
             model: Model identifier. ``None`` uses ``DEFAULT_MODEL``.
             max_tokens: Maximum tokens in the response.
             temperature: Sampling temperature.
+            image_files: Accepted for protocol compatibility; ignored by fake.
 
         Returns:
             ``LLMResponse[T]`` with configurable ``TokenUsage``.
