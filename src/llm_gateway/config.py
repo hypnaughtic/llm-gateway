@@ -88,6 +88,7 @@ class GatewayConfig(BaseSettings):
         fallback_map: dict[str, str] = {
             "anthropic": "ANTHROPIC_API_KEY",
             "openai": "OPENAI_API_KEY",
+            "gemini": "GEMINI_API_KEY",
         }
         env_var = fallback_map.get(self.provider)
         if env_var:

@@ -25,10 +25,9 @@ repos:
         pass_filenames: false
 
       - id: pytest-unit
-        name: unit tests
-        entry: pytest -m unit -q --no-header
+        name: unit tests with per-file coverage
+        entry: bash -c 'pytest -m unit -q --no-header --cov=src --cov-report=json && python scripts/check_per_file_coverage.py --threshold 90'
         language: system
-        types: [python]
         pass_filenames: false
         always_run: true
 

@@ -108,6 +108,14 @@ def _ensure_builtins_registered() -> None:
     except ImportError:
         logger.debug("openai extras not installed — provider not available")
 
+    # Gemini
+    try:
+        from llm_gateway.providers.gemini import GeminiProvider
+
+        register_provider("gemini", GeminiProvider.from_config)
+    except ImportError:
+        logger.debug("gemini extras not installed — provider not available")
+
     # Fake (testing) — always available, no optional deps
     from llm_gateway.testing import FakeLLMProvider
 

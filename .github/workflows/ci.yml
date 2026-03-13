@@ -43,8 +43,10 @@ jobs:
         run: pip install uv
       - name: Install dependencies
         run: uv pip install -e ".[dev]" --system
-      - name: Run unit tests
-        run: pytest -m unit --cov=src --cov-report=xml -v
+      - name: Run unit tests with coverage
+        run: pytest -m unit --cov=src --cov-report=xml --cov-report=json --cov-report=term -v
+      - name: Enforce per-file coverage (>= 90%)
+        run: python scripts/check_per_file_coverage.py --threshold 90
       - name: Upload coverage
         if: matrix.python-version == '3.12'
         uses: actions/upload-artifact@v4

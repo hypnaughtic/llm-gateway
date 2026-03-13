@@ -49,6 +49,7 @@ asyncio.run(main())
 ```bash
 pip install llm-gateway                     # core only
 pip install 'llm-gateway[anthropic]'        # + Anthropic provider
+pip install 'llm-gateway[gemini]'           # + Gemini provider
 pip install 'llm-gateway[all]'              # all optional deps
 ```
 
@@ -72,9 +73,9 @@ All settings use the `LLM_` prefix and are read from environment variables or `.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `LLM_PROVIDER` | `anthropic` | `anthropic`, `local_claude`, `fake`, or custom |
+| `LLM_PROVIDER` | `anthropic` | `anthropic`, `gemini`, `local_claude`, `fake`, or custom |
 | `LLM_MODEL` | `claude-sonnet-4-5-20250514` | Model identifier |
-| `LLM_API_KEY` | — | API key (falls back to `ANTHROPIC_API_KEY`) |
+| `LLM_API_KEY` | — | API key (falls back to provider-specific key) |
 | `LLM_MAX_TOKENS` | `4096` | Max response tokens |
 | `LLM_MAX_RETRIES` | `3` | Retry attempts |
 | `LLM_TIMEOUT_SECONDS` | `120` | Request timeout |
@@ -94,6 +95,30 @@ pip install 'llm-gateway[anthropic]'
 export ANTHROPIC_API_KEY=sk-ant-...
 export LLM_PROVIDER=anthropic
 ```
+
+### Gemini
+
+```bash
+pip install 'llm-gateway[gemini]'
+export GEMINI_API_KEY=...
+export LLM_PROVIDER=gemini
+```
+
+Default model: `gemini-2.5-flash`. All API-accessible Gemini models are supported:
+
+| Model | Input/1M | Output/1M | Notes |
+|-------|----------|-----------|-------|
+| `gemini-3.1-pro-preview` | $2.00 | $12.00 | Latest reasoning model |
+| `gemini-3.1-flash-lite-preview` | $0.25 | $1.50 | Most cost-efficient |
+| `gemini-3-flash-preview` | $0.50 | $3.00 | Fast + capable |
+| `gemini-2.5-pro` | $1.25 | $10.00 | Best quality/price |
+| `gemini-2.5-flash` | $0.15 | $0.60 | Default — balanced |
+| `gemini-2.5-flash-lite` | $0.10 | $0.40 | Budget option |
+| `gemini-2.0-flash` | $0.10 | $0.40 | Production stable |
+| `gemini-2.0-flash-lite` | $0.075 | $0.30 | Lowest cost (2.0) |
+| `gemini-1.5-pro` | $1.25 | $5.00 | Legacy pro |
+| `gemini-1.5-flash` | $0.075 | $0.30 | Legacy flash |
+| `gemini-1.5-flash-8b` | $0.0375 | $0.15 | Smallest model |
 
 ### Local Claude CLI
 
@@ -171,7 +196,8 @@ fake = FakeLLMProvider(response_factory=my_factory)
 
 | Provider | Config Value | Auth | Use Case |
 |----------|-------------|------|----------|
-| Anthropic | `anthropic` | `LLM_API_KEY` | Production |
+| Anthropic | `anthropic` | `LLM_API_KEY` or `ANTHROPIC_API_KEY` | Production |
+| Gemini | `gemini` | `LLM_API_KEY` or `GEMINI_API_KEY` | Production |
 | Local Claude CLI | `local_claude` | None | Free local dev |
 | Fake (testing) | `fake` | None | Unit/integration tests |
 
@@ -191,7 +217,7 @@ pre-commit install
 ruff check .                      # lint
 ruff format --check .             # format check
 mypy .                            # type check
-pytest -m unit -v                 # unit tests (39 tests, 82%+ coverage)
+pytest -m unit -v                 # unit tests (234 tests, 90%+ per-file coverage)
 ```
 
 ### Integration tests
@@ -242,7 +268,7 @@ GitHub Actions runs on every push and PR to `main`:
 | Job | What it does |
 |-----|--------------|
 | **lint** | ruff check, ruff format, mypy (Python 3.12) |
-| **test** | Unit tests on Python 3.11, 3.12, 3.13 with coverage |
+| **test** | Unit tests on Python 3.11, 3.12, 3.13 with per-file coverage (>= 90%) |
 | **integration-test** | Installs llm-gateway as a package, runs dry-run integration tests |
 | **test-minimal** | Verifies core imports work without optional extras |
 
