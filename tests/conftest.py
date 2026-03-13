@@ -38,6 +38,7 @@ class FakeLLMProvider:
         model: str,
         max_tokens: int = 4096,
         temperature: float = 0.0,
+        image_files: Sequence[str] | None = None,
     ) -> LLMResponse[T]:
         """Return pre-configured response."""
         self._call_count += 1

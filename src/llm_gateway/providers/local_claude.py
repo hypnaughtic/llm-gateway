@@ -135,10 +135,24 @@ class LocalClaudeProvider:
         model: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.0,
+        image_files: Sequence[str] | None = None,
     ) -> LLMResponse[T]:
         """Run claude CLI and parse structured output."""
         effective_model = model or self.DEFAULT_MODEL
         prompt = self._build_prompt(messages, response_model)
+
+        # When image files are provided, prepend instructions to read them
+        if image_files:
+            image_instructions = "\n".join(
+                f"First, read and examine the image at {path} using the Read tool."
+                for path in image_files
+            )
+            prompt = (
+                f"{image_instructions}\n"
+                "After examining the image(s), evaluate them visually and then "
+                "respond to the instructions below.\n\n"
+                f"{prompt}"
+            )
 
         # Build JSON schema string for --json-schema flag
         json_schema: str | None = None
@@ -159,6 +173,7 @@ class LocalClaudeProvider:
                 prompt,
                 model=effective_model,
                 json_schema=json_schema,
+                image_files=image_files,
             )
         except Exception as exc:
             logger.error("claude_cli_error | %s: %s", type(exc).__name__, exc)
@@ -244,6 +259,7 @@ class LocalClaudeProvider:
         *,
         model: str | None = None,
         json_schema: str | None = None,
+        image_files: Sequence[str] | None = None,
     ) -> tuple[str, dict[str, object]]:
         """Execute the claude CLI and return (result_text, wrapper_metadata).
 
@@ -253,6 +269,10 @@ class LocalClaudeProvider:
         When *json_schema* is provided the ``--json-schema`` flag is passed to
         the CLI, enabling native structured-output validation.  The validated
         object is returned under the ``structured_output`` key in the wrapper.
+
+        When *image_files* is provided, the ``--allowedTools "Read"`` flag
+        replaces ``--tools ""`` so Claude CLI can use its Read tool to
+        examine the image files for multimodal evaluation.
         """
         assert self._claude_path is not None
 
@@ -266,11 +286,17 @@ class LocalClaudeProvider:
             "--output-format",
             "json",
             "--no-session-persistence",
-            "--tools",
-            "",
-            "--max-budget-usd",
-            "5.00",
         ]
+
+        # When image files are present, allow Read tool for multimodal input.
+        # Otherwise disable all tools for faster, text-only inference.
+        if image_files:
+            cmd.extend(["--allowedTools", "Read"])
+        else:
+            cmd.extend(["--tools", ""])
+
+        cmd.extend(["--max-budget-usd", "5.00"])
+
         if model is not None:
             cmd.extend(["--model", model])
         if json_schema is not None:

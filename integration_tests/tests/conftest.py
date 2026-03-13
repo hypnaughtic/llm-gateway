@@ -174,6 +174,7 @@ class FakeLLMProvider:
         model: str,
         max_tokens: int = 4096,
         temperature: float = 0.0,
+        image_files: Sequence[str] | None = None,
     ) -> LLMResponse[T]:
         """Return a deterministic fake response and log the call."""
         content = self._build_fake_content(response_model)

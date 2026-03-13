@@ -76,6 +76,7 @@ class LLMClient:
         model: str | None = None,
         max_tokens: int | None = None,
         temperature: float | None = None,
+        image_files: Sequence[str] | None = None,
     ) -> LLMResponse[T]:
         """Send messages to the configured LLM and return a structured response.
 
@@ -85,6 +86,8 @@ class LLMClient:
             model: Override the default model from config.
             max_tokens: Override the default max_tokens from config.
             temperature: Override the default temperature from config.
+            image_files: Optional list of local file paths to images for
+                multimodal evaluation. Passed through to the provider.
 
         Returns:
             LLMResponse[T] with validated content, token usage, and cost.
@@ -110,6 +113,7 @@ class LLMClient:
                 model=effective_model,
                 max_tokens=effective_max_tokens,
                 temperature=effective_temperature,
+                image_files=image_files,
             )
             span_data["response"] = response
 

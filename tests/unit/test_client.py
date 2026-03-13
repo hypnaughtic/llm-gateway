@@ -148,3 +148,18 @@ class TestLLMClient:
             temperature=0.9,
         )
         # The call completed without error (temperature was forwarded)
+
+    @pytest.mark.asyncio
+    async def test_image_files_passed_through(self, fake_provider) -> None:  # type: ignore[no-untyped-def]
+        """image_files parameter is forwarded to the provider."""
+        fake_provider.set_response(_Answer, _Answer(text="visual"))
+
+        config = GatewayConfig(provider="fake", api_key="not-needed")  # type: ignore[arg-type]
+        client = LLMClient(config=config, provider_instance=fake_provider)
+
+        resp = await client.complete(
+            messages=[{"role": "user", "content": "evaluate"}],
+            response_model=_Answer,
+            image_files=["/tmp/test.png"],
+        )
+        assert resp.content.text == "visual"
