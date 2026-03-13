@@ -476,50 +476,37 @@ class TestGeminiRegistry:
 class TestGeminiCostIntegration:
     """Tests for Gemini-specific pricing in the cost module."""
 
-    def test_gemini_25_flash_pricing(self) -> None:
-        """gemini-2.5-flash pricing is registered."""
+    @pytest.mark.parametrize(
+        ("model", "expected_input", "expected_output"),
+        [
+            # Gemini 3.1
+            ("gemini-3.1-pro-preview", 2.00, 12.00),
+            ("gemini-3.1-flash-lite-preview", 0.25, 1.50),
+            # Gemini 3
+            ("gemini-3-flash-preview", 0.50, 3.00),
+            # Gemini 2.5
+            ("gemini-2.5-pro", 1.25, 10.00),
+            ("gemini-2.5-flash", 0.15, 0.60),
+            ("gemini-2.5-flash-lite", 0.10, 0.40),
+            # Gemini 2.0
+            ("gemini-2.0-flash", 0.10, 0.40),
+            ("gemini-2.0-flash-lite", 0.075, 0.30),
+            # Gemini 1.5
+            ("gemini-1.5-pro", 1.25, 5.00),
+            ("gemini-1.5-flash", 0.075, 0.30),
+            ("gemini-1.5-flash-8b", 0.0375, 0.15),
+        ],
+    )
+    def test_gemini_model_pricing(
+        self, model: str, expected_input: float, expected_output: float
+    ) -> None:
+        """All Gemini models have correct pricing registered."""
         from llm_gateway.cost import get_pricing
 
-        pricing = get_pricing("gemini-2.5-flash")
-        assert pricing is not None
-        assert pricing["input"] == 0.15
-        assert pricing["output"] == 0.60
-
-    def test_gemini_20_flash_pricing(self) -> None:
-        """gemini-2.0-flash pricing is registered."""
-        from llm_gateway.cost import get_pricing
-
-        pricing = get_pricing("gemini-2.0-flash")
-        assert pricing is not None
-        assert pricing["input"] == 0.10
-        assert pricing["output"] == 0.40
-
-    def test_gemini_15_flash_pricing(self) -> None:
-        """gemini-1.5-flash pricing is registered."""
-        from llm_gateway.cost import get_pricing
-
-        pricing = get_pricing("gemini-1.5-flash")
-        assert pricing is not None
-        assert pricing["input"] == 0.075
-        assert pricing["output"] == 0.30
-
-    def test_gemini_15_pro_pricing(self) -> None:
-        """gemini-1.5-pro pricing is registered."""
-        from llm_gateway.cost import get_pricing
-
-        pricing = get_pricing("gemini-1.5-pro")
-        assert pricing is not None
-        assert pricing["input"] == 1.25
-        assert pricing["output"] == 5.00
-
-    def test_gemini_25_pro_pricing(self) -> None:
-        """gemini-2.5-pro pricing is registered."""
-        from llm_gateway.cost import get_pricing
-
-        pricing = get_pricing("gemini-2.5-pro")
-        assert pricing is not None
-        assert pricing["input"] == 1.25
-        assert pricing["output"] == 10.00
+        pricing = get_pricing(model)
+        assert pricing is not None, f"{model} not in pricing registry"
+        assert pricing["input"] == pytest.approx(expected_input)
+        assert pricing["output"] == pytest.approx(expected_output)
 
     def test_gemini_cost_calculation(self) -> None:
         """calculate_cost returns correct values for Gemini model."""

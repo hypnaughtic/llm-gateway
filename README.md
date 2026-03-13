@@ -104,7 +104,21 @@ export GEMINI_API_KEY=...
 export LLM_PROVIDER=gemini
 ```
 
-Default model: `gemini-2.5-flash`. Supported models: `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-2.0-flash`, `gemini-1.5-flash`, `gemini-1.5-pro`.
+Default model: `gemini-2.5-flash`. All API-accessible Gemini models are supported:
+
+| Model | Input/1M | Output/1M | Notes |
+|-------|----------|-----------|-------|
+| `gemini-3.1-pro-preview` | $2.00 | $12.00 | Latest reasoning model |
+| `gemini-3.1-flash-lite-preview` | $0.25 | $1.50 | Most cost-efficient |
+| `gemini-3-flash-preview` | $0.50 | $3.00 | Fast + capable |
+| `gemini-2.5-pro` | $1.25 | $10.00 | Best quality/price |
+| `gemini-2.5-flash` | $0.15 | $0.60 | Default — balanced |
+| `gemini-2.5-flash-lite` | $0.10 | $0.40 | Budget option |
+| `gemini-2.0-flash` | $0.10 | $0.40 | Production stable |
+| `gemini-2.0-flash-lite` | $0.075 | $0.30 | Lowest cost (2.0) |
+| `gemini-1.5-pro` | $1.25 | $5.00 | Legacy pro |
+| `gemini-1.5-flash` | $0.075 | $0.30 | Legacy flash |
+| `gemini-1.5-flash-8b` | $0.0375 | $0.15 | Smallest model |
 
 ### Local Claude CLI
 
