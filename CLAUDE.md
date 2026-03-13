@@ -32,6 +32,7 @@ Consumer → LLMClient → Provider (via Registry) → LLM API / CLI
 | `src/llm_gateway/registry.py` | `register_provider()`, `build_provider()`, lazy builtins |
 | `src/llm_gateway/providers/base.py` | `LLMProvider` Protocol |
 | `src/llm_gateway/providers/anthropic.py` | `AnthropicProvider` (instructor + AsyncAnthropic) |
+| `src/llm_gateway/providers/gemini.py` | `GeminiProvider` (google-genai + instructor) |
 | `src/llm_gateway/providers/local_claude.py` | `LocalClaudeProvider` (claude CLI subprocess) |
 | `src/llm_gateway/observability/tracing.py` | OTEL setup, `traced_llm_call` context manager |
 | `src/llm_gateway/observability/logging.py` | structlog / stdlib fallback |
@@ -40,7 +41,7 @@ Consumer → LLMClient → Provider (via Registry) → LLM API / CLI
 
 | Suite | Location | Count | Command |
 |-------|----------|-------|---------|
-| Unit tests | `tests/unit/` | 79 | `pytest -m unit -v` |
+| Unit tests | `tests/unit/` | 234 | `pytest -m unit -v` |
 | Integration (dry-run) | `integration_tests/tests/test_dry_run.py` | 22 | `cd integration_tests && pytest -v` |
 | Integration (live) | `integration_tests/tests/test_live.py` | 10 | `cd integration_tests && pytest --run-live -m live -v` |
 
@@ -54,10 +55,12 @@ Live tests stream DEBUG-level logs of full CLI interactions (prompt sent, raw re
 2. **Heuristic token estimation**: Local claude uses ~4 chars/token heuristic since the CLI doesn't report actual tokens. Cost is always $0 (no API fees).
 3. **Integration test isolation**: `integration_tests/` has its own `pyproject.toml` and installs llm-gateway as a package dependency. This validates the public API surface and package installability.
 4. **Pre-commit mirrors CI**: Hooks run ruff, mypy, unit tests, and integration dry-run tests — same as the CI pipeline.
-5. **Optional heavy deps**: Anthropic SDK, OpenTelemetry, and structlog are optional extras. Core package has only pydantic, pydantic-settings, and tenacity.
+5. **Optional heavy deps**: Anthropic SDK, Google GenAI SDK, OpenTelemetry, and structlog are optional extras. Core package has only pydantic, pydantic-settings, and tenacity.
 6. **Pinned dev tool versions**: `ruff~=0.12.0` and `mypy~=1.16.0` ensure consistent linting/type-checking across local, pre-commit, and CI (all Python versions).
 7. **`type: ignore[return-value]`** on `model_validate_json()` in `LocalClaudeProvider._parse_response()` — required for mypy cross-version compatibility since the generic `T` return confuses some mypy versions.
 8. **Live test logging guard**: `_configure_live_logging` fixture sets `gw_logging._CONFIGURED = True` to prevent `configure_logging()` from clearing pytest's `_LiveLoggingStreamHandler`, then sets root logger to DEBUG so provider logs stream live.
+9. **Per-file coverage**: CI and pre-commit enforce 90%+ test coverage per source file (not just project-wide). Uses `scripts/check_per_file_coverage.py` with `coverage.json` output.
+10. **Branch protection**: Main branch requires PR review, passing CI checks, and no direct pushes.
 
 ## Development Commands
 

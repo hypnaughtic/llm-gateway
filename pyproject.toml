@@ -31,13 +31,14 @@ dependencies = [
 [project.optional-dependencies]
 anthropic = ["anthropic>=0.40.0", "instructor>=1.0.0"]
 openai = ["openai>=1.0.0", "instructor>=1.0.0"]
+gemini = ["google-genai>=1.0.0", "instructor>=1.0.0"]
 tracing = [
     "opentelemetry-api>=1.20.0",
     "opentelemetry-sdk>=1.20.0",
     "opentelemetry-exporter-otlp>=1.20.0",
 ]
 logging = ["structlog>=24.0.0"]
-all = ["llm-gateway[anthropic,tracing,logging]"]
+all = ["llm-gateway[anthropic,gemini,tracing,logging]"]
 dev = [
     "llm-gateway[all]",
     "pytest>=8.0",
@@ -93,6 +94,25 @@ warn_unused_configs = true
 packages = ["llm_gateway"]
 exclude = ["integration_tests"]
 
+[tool.coverage.run]
+source = ["llm_gateway"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__",
+    "raise ImportError",
+    "HAS_\\w+ = False",
+    "^\\s*\\.\\.\\.$",
+]
+omit = [
+    "src/llm_gateway/providers/openai_image.py",
+    "src/llm_gateway/providers/openai.py",
+]
+fail_under = 90
+
 [[tool.mypy.overrides]]
-module = ["anthropic.*", "instructor.*", "opentelemetry.*", "structlog.*"]
+module = ["anthropic.*", "instructor.*", "opentelemetry.*", "structlog.*", "google.*", "google.genai.*"]
 ignore_missing_imports = true
