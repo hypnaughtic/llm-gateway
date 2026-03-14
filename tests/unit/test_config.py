@@ -51,6 +51,50 @@ class TestGatewayConfig:
         with pytest.raises(ValueError, match="No API key"):
             config.get_api_key()
 
+    def test_image_api_key_direct(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """LLM_IMAGE_API_KEY resolves directly."""
+        monkeypatch.setenv("LLM_IMAGE_API_KEY", "img-key-direct")
+        monkeypatch.setenv("LLM_IMAGE_PROVIDER", "gemini_image")
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+        config = GatewayConfig()
+        assert config.get_image_api_key() == "img-key-direct"
+
+    def test_image_api_key_fallback_gemini(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """GEMINI_API_KEY resolves for gemini_image provider."""
+        monkeypatch.delenv("LLM_IMAGE_API_KEY", raising=False)
+        monkeypatch.setenv("LLM_IMAGE_PROVIDER", "gemini_image")
+        monkeypatch.setenv("GEMINI_API_KEY", "gemini-key-123")
+        config = GatewayConfig()
+        assert config.get_image_api_key() == "gemini-key-123"
+
+    def test_image_api_key_fallback_google(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """GOOGLE_API_KEY as secondary fallback for gemini_image."""
+        monkeypatch.delenv("LLM_IMAGE_API_KEY", raising=False)
+        monkeypatch.setenv("LLM_IMAGE_PROVIDER", "gemini_image")
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        monkeypatch.setenv("GOOGLE_API_KEY", "google-key-456")
+        config = GatewayConfig()
+        assert config.get_image_api_key() == "google-key-456"
+
+    def test_image_api_key_fallback_openai_image(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """OPENAI_API_KEY resolves for openai_image provider."""
+        monkeypatch.delenv("LLM_IMAGE_API_KEY", raising=False)
+        monkeypatch.setenv("LLM_IMAGE_PROVIDER", "openai_image")
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-img")
+        config = GatewayConfig()
+        assert config.get_image_api_key() == "sk-openai-img"
+
+    def test_get_image_api_key_raises_when_missing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """ValueError when no image API key is configured."""
+        monkeypatch.delenv("LLM_IMAGE_API_KEY", raising=False)
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+        monkeypatch.setenv("LLM_IMAGE_PROVIDER", "gemini_image")
+        config = GatewayConfig()
+        with pytest.raises(ValueError, match="No image API key"):
+            config.get_image_api_key()
+
     def test_cost_guardrails(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("LLM_COST_LIMIT_USD", "10.0")
         monkeypatch.setenv("LLM_COST_WARN_USD", "5.0")

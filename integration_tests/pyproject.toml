@@ -13,7 +13,7 @@ dependencies = [
     #   "llm-gateway @ git+https://github.com/YOUR_ORG/llm-gateway.git@<COMMIT_SHA>"
     #
     # For local development against the repo on disk:
-    "llm-gateway @ file:///Users/rushabhthakkar/Desktop/workspace/projects/llm-gateway",
+    "llm-gateway @ file:///Users/rushabhthakkar/Desktop/workspace/projects/hypnaughtic/llm-gateway",
 
     # ── Test framework ───────────────────────────────────────────
     "pytest>=8.0",
@@ -33,6 +33,7 @@ asyncio_mode = "auto"
 markers = [
     "dry_run: tests with mocked LLM providers (no real calls)",
     "live: tests that call real LLM providers (requires claude CLI)",
+    "image: image generation tests",
 ]
 # By default, run dry_run tests only. Pass --run-live to include live tests.
 addopts = "-m dry_run"

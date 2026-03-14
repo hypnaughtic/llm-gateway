@@ -11,15 +11,16 @@ Provides:
 from __future__ import annotations
 
 import shutil
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, ClassVar, TypeVar
 
 import pytest
 from pydantic import BaseModel
 
 # ── All imports come from the installed llm-gateway package ──
-from llm_gateway import GatewayConfig, LLMClient, LLMResponse
+from llm_gateway import GatewayConfig, ImageClient, LLMClient, LLMResponse
 from llm_gateway.cost import build_token_usage
 from llm_gateway.types import LLMMessage
 
@@ -55,12 +56,22 @@ _live_stats: LiveSessionStats | None = None
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    """Add --run-live flag to enable live LLM provider tests."""
+    """Add --run-live flag and image test options."""
     parser.addoption(
         "--run-live",
         action="store_true",
         default=False,
         help="Run live integration tests that call real LLM providers.",
+    )
+    parser.addoption(
+        "--image-prompt",
+        default="a serene mountain lake at sunset, digital art",
+        help="Prompt to use for image generation e2e tests.",
+    )
+    parser.addoption(
+        "--image-provider",
+        default="gemini_image",
+        help="Image provider for e2e tests: 'gemini_image' or 'openai_image'.",
     )
 
 
@@ -301,3 +312,76 @@ def live_client() -> LLMClient | None:
         log_level="DEBUG",
     )
     return LLMClient(config=config)
+
+
+# ─── Image Test Fixtures ──────────────────────────────────────
+
+
+@dataclass
+class LiveImageSessionStats:
+    """Accumulates stats across all live image integration tests."""
+
+    total_calls: int = 0
+    total_images: int = 0
+    total_cost_usd: float = 0.0
+
+    def record_client(self, client: ImageClient) -> None:
+        """Record stats from a completed image client session."""
+        summary = client.cost_summary()
+        self.total_calls += summary["call_count"]
+        self.total_cost_usd += summary["total_cost_usd"]
+
+
+_live_image_stats: LiveImageSessionStats | None = None
+
+
+@pytest.fixture(scope="session")
+def live_image_session_stats() -> LiveImageSessionStats:
+    """Session-scoped stats accumulator for live image test runs."""
+    global _live_image_stats
+    _live_image_stats = LiveImageSessionStats()
+    return _live_image_stats
+
+
+@pytest.fixture
+def image_prompt(request: pytest.FixtureRequest) -> str:
+    """Return the image prompt from CLI option."""
+    return str(request.config.getoption("--image-prompt"))
+
+
+@pytest.fixture
+def test_output_dir() -> Path:
+    """Create and return the test outputs directory."""
+    out = Path(__file__).parent.parent / "test_outputs"
+    out.mkdir(exist_ok=True)
+    return out
+
+
+@pytest.fixture
+def make_live_image_client(
+    request: pytest.FixtureRequest,
+    live_image_session_stats: LiveImageSessionStats,
+) -> Iterator[Callable[[], ImageClient]]:
+    """Factory fixture that creates live ImageClients and auto-records stats.
+
+    Reads API key from environment (set via .env or export).
+    Provider is selected via --image-provider CLI option.
+    """
+    created: list[ImageClient] = []
+    image_provider = str(request.config.getoption("--image-provider"))
+
+    def _factory() -> ImageClient:
+        config = GatewayConfig(
+            image_provider=image_provider,
+            trace_enabled=False,
+            log_format="console",
+            log_level="DEBUG",
+        )
+        client = ImageClient(config=config)
+        created.append(client)
+        return client
+
+    yield _factory
+
+    for client in created:
+        live_image_session_stats.record_client(client)

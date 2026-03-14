@@ -33,6 +33,7 @@ Consumer → LLMClient → Provider (via Registry) → LLM API / CLI
 | `src/llm_gateway/providers/base.py` | `LLMProvider` Protocol |
 | `src/llm_gateway/providers/anthropic.py` | `AnthropicProvider` (instructor + AsyncAnthropic) |
 | `src/llm_gateway/providers/gemini.py` | `GeminiProvider` (google-genai + instructor) |
+| `src/llm_gateway/providers/gemini_image.py` | `GeminiImageProvider` (google-genai Imagen API) |
 | `src/llm_gateway/providers/local_claude.py` | `LocalClaudeProvider` (claude CLI subprocess) |
 | `src/llm_gateway/observability/tracing.py` | OTEL setup, `traced_llm_call` context manager |
 | `src/llm_gateway/observability/logging.py` | structlog / stdlib fallback |
@@ -41,9 +42,10 @@ Consumer → LLMClient → Provider (via Registry) → LLM API / CLI
 
 | Suite | Location | Count | Command |
 |-------|----------|-------|---------|
-| Unit tests | `tests/unit/` | 234 | `pytest -m unit -v` |
-| Integration (dry-run) | `integration_tests/tests/test_dry_run.py` | 22 | `cd integration_tests && pytest -v` |
-| Integration (live) | `integration_tests/tests/test_live.py` | 10 | `cd integration_tests && pytest --run-live -m live -v` |
+| Unit tests | `tests/unit/` | 234+ | `pytest -m unit -v` |
+| Integration (dry-run) | `integration_tests/tests/` | 32 | `cd integration_tests && pytest -v` |
+| Integration (live LLM) | `integration_tests/tests/test_live.py` | 10 | `cd integration_tests && pytest --run-live -m live -v` |
+| Integration (live image) | `integration_tests/tests/test_image_e2e.py` | 4 | `cd integration_tests && pytest --run-live -m live tests/test_image_e2e.py -v` |
 
 Integration tests are an independent Python project under `integration_tests/` that installs llm-gateway as a dependency (not direct source import). In CI, llm-gateway is installed from the checkout; locally, it uses a `file://` reference.
 
