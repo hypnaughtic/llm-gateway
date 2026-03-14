@@ -61,7 +61,7 @@ class TestGeminiImageProvider:
         assert resp.images[0].b64_json == base64.b64encode(raw_bytes).decode("ascii")
         assert resp.images[0].url is None
         assert resp.provider == "gemini_image"
-        assert resp.model == "imagen-3.0-generate-002"
+        assert resp.model == "imagen-4.0-generate-001"
         assert resp.latency_ms > 0
 
     @pytest.mark.asyncio
@@ -104,7 +104,7 @@ class TestGeminiImageProvider:
         """Default model is imagen-3.0-generate-002."""
         from llm_gateway.providers.gemini_image import GeminiImageProvider
 
-        assert GeminiImageProvider.DEFAULT_MODEL == "imagen-3.0-generate-002"
+        assert GeminiImageProvider.DEFAULT_MODEL == "imagen-4.0-generate-001"
 
     @pytest.mark.asyncio
     async def test_error_wrapping(self) -> None:
