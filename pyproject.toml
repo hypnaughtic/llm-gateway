@@ -110,6 +110,7 @@ exclude_lines = [
 omit = [
     "src/llm_gateway/providers/openai_image.py",
     "src/llm_gateway/providers/openai.py",
+    "src/llm_gateway/providers/gemini_image.py",
 ]
 fail_under = 90
 

@@ -173,6 +173,22 @@ _IMAGE_PRICING: dict[str, dict[str, dict[str, float]]] = {
     "dall-e-2": {
         "standard": {"256x256": 0.016, "512x512": 0.018, "1024x1024": 0.020, "auto": 0.020},
     },
+    # Google Imagen
+    "imagen-3.0-generate-002": {
+        "standard": {"auto": 0.04, "1024x1024": 0.04},
+    },
+    "imagen-3.0-fast-generate-001": {
+        "standard": {"auto": 0.02, "1024x1024": 0.02},
+    },
+    "imagen-4.0-generate-001": {
+        "standard": {"auto": 0.04, "1024x1024": 0.04},
+    },
+    "imagen-4.0-ultra-generate-001": {
+        "standard": {"auto": 0.08, "1024x1024": 0.08},
+    },
+    "imagen-4.0-fast-generate-001": {
+        "standard": {"auto": 0.02, "1024x1024": 0.02},
+    },
 }
 
 

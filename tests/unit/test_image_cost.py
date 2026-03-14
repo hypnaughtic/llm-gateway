@@ -54,6 +54,18 @@ class TestImagePricing:
         cost = calculate_image_cost("custom-img", quality="standard", size="512x512")
         assert cost == pytest.approx(0.05)
 
+    def test_imagen_standard_cost(self) -> None:
+        """Imagen 3.0 generate returns $0.04."""
+        cost = calculate_image_cost("imagen-3.0-generate-002", quality="standard", size="auto")
+        assert cost == pytest.approx(0.04)
+
+    def test_imagen_fast_cost(self) -> None:
+        """Imagen 3.0 fast returns $0.02."""
+        cost = calculate_image_cost(
+            "imagen-3.0-fast-generate-001", quality="standard", size="auto"
+        )
+        assert cost == pytest.approx(0.02)
+
     def test_build_image_usage(self) -> None:
         """build_image_usage creates correct ImageTokenUsage."""
         usage = build_image_usage("gpt-image-1", quality="low", size="1024x1024", num_images=2)

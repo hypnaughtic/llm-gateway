@@ -188,6 +188,14 @@ def _ensure_image_builtins_registered() -> None:
     except ImportError:
         logger.debug("openai extras not installed — image provider not available")
 
+    # Gemini Image
+    try:
+        from llm_gateway.providers.gemini_image import GeminiImageProvider
+
+        register_image_provider("gemini_image", GeminiImageProvider.from_config)
+    except ImportError:
+        logger.debug("google-genai extras not installed — gemini image provider not available")
+
     # Fake (testing) — always available
     from llm_gateway.testing import FakeImageProvider
 

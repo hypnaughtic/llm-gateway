@@ -41,11 +41,15 @@ class GatewayConfig(BaseSettings):
     # ── Image Provider ─────────────────────────────────────────
     image_provider: str = Field(
         default="fake_image",
-        description="Image provider name: 'openai_image', 'fake_image', etc.",
+        description="Image provider name: 'openai_image', 'gemini_image', 'fake_image', etc.",
     )
     image_model: str | None = Field(
         default=None,
         description="Image model identifier. When unset, each provider uses its default.",
+    )
+    image_api_key: SecretStr | None = Field(
+        default=None,
+        description="Image API key. Falls back to provider-specific env vars if unset.",
     )
 
     # ── Request defaults ────────────────────────────────────────
@@ -82,19 +86,29 @@ class GatewayConfig(BaseSettings):
     @model_validator(mode="after")
     def _resolve_api_key(self) -> GatewayConfig:
         """Fall back to provider-specific env vars if LLM_API_KEY is unset."""
-        if self.api_key is not None:
-            return self
+        if self.api_key is None:
+            fallback_map: dict[str, str] = {
+                "anthropic": "ANTHROPIC_API_KEY",
+                "openai": "OPENAI_API_KEY",
+                "gemini": "GEMINI_API_KEY",
+            }
+            env_var = fallback_map.get(self.provider)
+            if env_var:
+                value = os.environ.get(env_var)
+                if value:
+                    self.api_key = SecretStr(value)
 
-        fallback_map: dict[str, str] = {
-            "anthropic": "ANTHROPIC_API_KEY",
-            "openai": "OPENAI_API_KEY",
-            "gemini": "GEMINI_API_KEY",
-        }
-        env_var = fallback_map.get(self.provider)
-        if env_var:
-            value = os.environ.get(env_var)
-            if value:
-                self.api_key = SecretStr(value)
+        if self.image_api_key is None:
+            image_fallback_map: dict[str, list[str]] = {
+                "openai_image": ["OPENAI_API_KEY"],
+                "gemini_image": ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+            }
+            env_vars = image_fallback_map.get(self.image_provider, [])
+            for env_var_name in env_vars:
+                value = os.environ.get(env_var_name)
+                if value:
+                    self.image_api_key = SecretStr(value)
+                    break
 
         return self
 
@@ -111,3 +125,17 @@ class GatewayConfig(BaseSettings):
             )
             raise ValueError(msg)
         return self.api_key.get_secret_value()
+
+    def get_image_api_key(self) -> str:
+        """Return the resolved image API key as a plain string.
+
+        Raises:
+            ValueError: If no image API key is configured for a provider that needs one.
+        """
+        if self.image_api_key is None:
+            msg = (
+                f"No image API key configured for provider '{self.image_provider}'. "
+                f"Set LLM_IMAGE_API_KEY or the provider-specific env var."
+            )
+            raise ValueError(msg)
+        return self.image_api_key.get_secret_value()
