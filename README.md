@@ -1,19 +1,22 @@
 # llm-gateway
 
-[![CI](https://github.com/YOUR_ORG/llm-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_ORG/llm-gateway/actions/workflows/ci.yml)
+[![CI](https://github.com/hypnaughtic/llm-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/hypnaughtic/llm-gateway/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/pypi/pyversions/llm-gateway)](https://pypi.org/project/llm-gateway/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Production-ready, vendor-agnostic LLM gateway** with config-driven provider switching, built-in cost tracking, and OpenTelemetry observability.
+**Production-ready, vendor-agnostic LLM gateway** with config-driven provider switching, token counting, image generation, built-in cost tracking, and OpenTelemetry observability.
 
 ## Features
 
 - **Zero-code provider switching** — Change `LLM_PROVIDER` env var, restart. Done.
 - **Structured output** — Every call returns a validated Pydantic model via `response_model`.
-- **Built-in cost tracking** — Token usage and USD cost on every response; configurable guardrails.
+- **Token counting** — Provider-aware `count_tokens()` without making LLM calls. Local BPE for Anthropic, SDK API for Gemini, heuristic fallback everywhere.
+- **Image generation** — `ImageClient` with the same config-driven pattern (`LLM_IMAGE_PROVIDER`).
+- **Multimodal input** — Pass `image_files` to `complete()` for vision/multimodal evaluation.
+- **Built-in cost tracking** — Token usage and USD cost on every response; configurable warn threshold and hard limit.
 - **Observability** — OpenTelemetry spans per LLM call with model, tokens, cost, latency attributes.
-- **Extensible** — Add custom providers with a single factory function.
-- **Type-safe** — Full type annotations, `py.typed`, strict mypy.
+- **Extensible** — Add custom providers and tokenizers with a single factory function.
+- **Type-safe** — Full type annotations, `py.typed`, strict mypy, zero errors.
 
 ## Quick Start
 
@@ -30,14 +33,13 @@ class Answer(BaseModel):
     text: str
 
 async def main():
-    llm = LLMClient()  # reads LLM_* env vars
-    resp = await llm.complete(
-        messages=[{"role": "user", "content": "What is 2+2?"}],
-        response_model=Answer,
-    )
-    print(resp.content.text)          # "4"
-    print(resp.usage.total_cost_usd)  # 0.000123
-    await llm.close()
+    async with LLMClient() as llm:  # reads LLM_* env vars
+        resp = await llm.complete(
+            messages=[{"role": "user", "content": "What is 2+2?"}],
+            response_model=Answer,
+        )
+        print(resp.content.text)          # "4"
+        print(resp.usage.total_cost_usd)  # 0.000123
 
 asyncio.run(main())
 ```
@@ -47,10 +49,12 @@ asyncio.run(main())
 ### As a PyPI package
 
 ```bash
-pip install llm-gateway                     # core only
+pip install llm-gateway                     # core only (pydantic + tenacity)
 pip install 'llm-gateway[anthropic]'        # + Anthropic provider
 pip install 'llm-gateway[gemini]'           # + Gemini provider
-pip install 'llm-gateway[all]'              # all optional deps
+pip install 'llm-gateway[tracing]'          # + OpenTelemetry
+pip install 'llm-gateway[logging]'          # + structlog
+pip install 'llm-gateway[all]'             # all optional deps
 ```
 
 ### As a git dependency
@@ -59,11 +63,11 @@ Pin to a specific commit SHA for reproducible builds:
 
 ```
 # requirements.txt
-llm-gateway @ git+https://github.com/YOUR_ORG/llm-gateway.git@<COMMIT_SHA>
+llm-gateway @ git+https://github.com/hypnaughtic/llm-gateway.git@<COMMIT_SHA>
 
 # pyproject.toml (PEP 621)
 dependencies = [
-    "llm-gateway @ git+https://github.com/YOUR_ORG/llm-gateway.git@<COMMIT_SHA>",
+    "llm-gateway @ git+https://github.com/hypnaughtic/llm-gateway.git@<COMMIT_SHA>",
 ]
 ```
 
@@ -74,13 +78,17 @@ All settings use the `LLM_` prefix and are read from environment variables or `.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `LLM_PROVIDER` | `anthropic` | `anthropic`, `gemini`, `local_claude`, `fake`, or custom |
-| `LLM_MODEL` | `claude-sonnet-4-5-20250514` | Model identifier |
-| `LLM_API_KEY` | — | API key (falls back to provider-specific key) |
+| `LLM_MODEL` | *(provider default)* | Model identifier (each provider has its own default) |
+| `LLM_API_KEY` | — | API key (falls back to provider-specific env var) |
+| `LLM_BASE_URL` | — | Optional base URL override |
 | `LLM_MAX_TOKENS` | `4096` | Max response tokens |
-| `LLM_MAX_RETRIES` | `3` | Retry attempts |
+| `LLM_TEMPERATURE` | `0.0` | Sampling temperature |
+| `LLM_MAX_RETRIES` | `3` | Retry attempts with exponential backoff |
 | `LLM_TIMEOUT_SECONDS` | `120` | Request timeout |
 | `LLM_COST_LIMIT_USD` | — | Hard cost limit per client instance |
 | `LLM_COST_WARN_USD` | — | Warning threshold |
+| `LLM_IMAGE_PROVIDER` | `fake_image` | `openai_image`, `gemini_image`, `fake_image` |
+| `LLM_IMAGE_API_KEY` | — | Image API key (falls back to provider-specific env var) |
 | `LLM_TRACE_ENABLED` | `false` | Enable OTEL tracing |
 | `LLM_TRACE_EXPORTER` | `none` | `none`, `console`, `otlp` |
 | `LLM_LOG_LEVEL` | `INFO` | Log level |
@@ -96,6 +104,8 @@ export ANTHROPIC_API_KEY=sk-ant-...
 export LLM_PROVIDER=anthropic
 ```
 
+Default model: `claude-sonnet-4-5-20250514`.
+
 ### Gemini
 
 ```bash
@@ -104,7 +114,7 @@ export GEMINI_API_KEY=...
 export LLM_PROVIDER=gemini
 ```
 
-Default model: `gemini-2.5-flash`. All API-accessible Gemini models are supported:
+Default model: `gemini-2.5-flash`. All API-accessible Gemini models are supported with built-in pricing:
 
 | Model | Input/1M | Output/1M | Notes |
 |-------|----------|-----------|-------|
@@ -112,7 +122,7 @@ Default model: `gemini-2.5-flash`. All API-accessible Gemini models are supporte
 | `gemini-3.1-flash-lite-preview` | $0.25 | $1.50 | Most cost-efficient |
 | `gemini-3-flash-preview` | $0.50 | $3.00 | Fast + capable |
 | `gemini-2.5-pro` | $1.25 | $10.00 | Best quality/price |
-| `gemini-2.5-flash` | $0.15 | $0.60 | Default — balanced |
+| `gemini-2.5-flash` | $0.15 | $0.60 | **Default** — balanced |
 | `gemini-2.5-flash-lite` | $0.10 | $0.40 | Budget option |
 | `gemini-2.0-flash` | $0.10 | $0.40 | Production stable |
 | `gemini-2.0-flash-lite` | $0.075 | $0.30 | Lowest cost (2.0) |
@@ -128,19 +138,109 @@ Use the Claude Code CLI for local inference — no API key needed:
 export LLM_PROVIDER=local_claude
 ```
 
+Default model: `claude-haiku-4-5-20251001`. Requires the `claude` CLI in your PATH.
+
 ### Custom Provider
 
 ```python
-from llm_gateway import register_provider
+from llm_gateway import register_provider, LLMClient
 
 class MyProvider:
-    async def complete(self, messages, response_model, model, **kwargs):
+    async def complete(self, messages, response_model, model=None, **kwargs):
         ...  # Your implementation
+    def count_tokens(self, text):
+        return len(text) // 4 or 1
     async def close(self):
         ...
 
 register_provider("my_provider", lambda config: MyProvider())
+
+# Use it
+llm = LLMClient(config=GatewayConfig(provider="my_provider"))
 ```
+
+## Token Counting
+
+Count tokens without making LLM completion calls — useful for prompt budgeting, cost estimation, and input validation.
+
+### Standalone
+
+```python
+from llm_gateway import count_tokens
+
+n = count_tokens("Hello, world!")                    # default: anthropic
+n = count_tokens("Hello, world!", provider="gemini") # gemini tokenizer
+```
+
+### Via LLMClient
+
+```python
+llm = LLMClient()
+n = llm.count_tokens("Hello, world!")
+```
+
+### Build a reusable tokenizer
+
+```python
+from llm_gateway import build_tokenizer
+
+tok = build_tokenizer("anthropic")  # cached singleton
+n = tok.count_tokens("Hello, world!")
+```
+
+### Provider accuracy
+
+| Provider | Method | Local? | Accuracy |
+|---|---|---|---|
+| `anthropic` | tiktoken BPE (cl100k_base) | Yes | Exact |
+| `local_claude` | tiktoken BPE (fallback: heuristic) | Yes | Exact (fallback: ~75-80%) |
+| `gemini` | google-genai SDK API call | No | Exact (fallback: ~80-85%) |
+| `fake` | chars/4 heuristic | Yes | ~75-80% |
+
+Unknown providers fall back to the heuristic tokenizer automatically (no error).
+
+> **Note**: Token counts are for raw text only. They do not account for message framing overhead that providers add during completion calls.
+
+## Image Generation
+
+```python
+from llm_gateway import ImageClient
+
+async with ImageClient() as img:
+    resp = await img.generate_image("a cat wearing a hat")
+    print(resp.images[0].url)        # image URL or base64
+    print(resp.usage.total_cost_usd) # cost
+    print(img.total_cost_usd)        # cumulative
+```
+
+Configure with:
+
+```bash
+export LLM_IMAGE_PROVIDER=gemini_image  # or openai_image
+export GEMINI_API_KEY=...               # provider-specific key
+```
+
+Available image providers:
+
+| Provider | Config Value | Auth |
+|----------|-------------|------|
+| Gemini Imagen | `gemini_image` | `LLM_IMAGE_API_KEY` or `GEMINI_API_KEY` |
+| OpenAI DALL-E | `openai_image` | `LLM_IMAGE_API_KEY` or `OPENAI_API_KEY` |
+| Fake (testing) | `fake_image` | None |
+
+## Multimodal (Vision)
+
+Pass image files to `complete()` for multimodal evaluation:
+
+```python
+resp = await llm.complete(
+    messages=[{"role": "user", "content": "Describe this image"}],
+    response_model=Description,
+    image_files=["photo.jpg"],
+)
+```
+
+Currently supported by the `local_claude` provider (uses the Claude CLI's Read tool).
 
 ## Cost Tracking
 
@@ -157,9 +257,16 @@ print(llm.total_cost_usd)  # 0.001234
 print(llm.cost_summary())  # {"total_tokens": ..., "total_cost_usd": ..., ...}
 ```
 
+Set guardrails via env vars:
+
+```bash
+export LLM_COST_LIMIT_USD=1.00   # hard limit — raises CostLimitExceededError
+export LLM_COST_WARN_USD=0.50    # warning threshold — logs a warning
+```
+
 ## Testing
 
-llm-gateway ships a `FakeLLMProvider` for use in consumer test suites:
+llm-gateway ships `FakeLLMProvider` and `FakeImageProvider` for consumer test suites:
 
 ```python
 from llm_gateway import LLMClient, FakeLLMProvider
@@ -179,11 +286,12 @@ async with LLMClient(provider_instance=fake) as client:
     )
     assert resp.content.text == "42"
     assert fake.call_count == 1
+    assert client.count_tokens("Hello") > 0  # token counting works too
 
 # Or use via env var: LLM_PROVIDER=fake
 ```
 
-You can also pass a `response_factory` for dynamic responses:
+Dynamic responses:
 
 ```python
 def my_factory(response_model, messages):
@@ -192,19 +300,39 @@ def my_factory(response_model, messages):
 fake = FakeLLMProvider(response_factory=my_factory)
 ```
 
-### Providers
+### Provider summary
 
 | Provider | Config Value | Auth | Use Case |
 |----------|-------------|------|----------|
 | Anthropic | `anthropic` | `LLM_API_KEY` or `ANTHROPIC_API_KEY` | Production |
 | Gemini | `gemini` | `LLM_API_KEY` or `GEMINI_API_KEY` | Production |
-| Local Claude CLI | `local_claude` | None | Free local dev |
+| Local Claude CLI | `local_claude` | None (requires `claude` CLI) | Free local dev |
 | Fake (testing) | `fake` | None | Unit/integration tests |
+
+## Architecture
+
+```
+Consumer → LLMClient  → Provider (via Registry) → LLM API / CLI
+                ↕              ↕
+          CostTracker    Tokenizer (via Tokenizer Registry)
+                ↕
+           OTEL Tracer
+
+Consumer → ImageClient → ImageProvider (via Image Registry) → Image API
+```
+
+### Key design principles
+
+- **Protocol-based**: `LLMProvider` Protocol with `complete()`, `count_tokens()`, `close()`. `ImageGenerationProvider` with `generate_image()`, `close()`.
+- **Lazy registration**: Provider SDKs are only imported when the provider is first used. Missing optional deps are silently skipped.
+- **Config-driven**: `GatewayConfig(BaseSettings)` reads `LLM_*` env vars via pydantic-settings. Zero code changes to switch providers.
+- **Dependency injection**: Pass `provider_instance=` to bypass the registry for testing.
+- **Optional heavy deps**: Core package has only pydantic, pydantic-settings, and tenacity. Provider SDKs, OTEL, and structlog are extras.
 
 ## Development
 
 ```bash
-git clone https://github.com/YOUR_ORG/llm-gateway.git
+git clone https://github.com/hypnaughtic/llm-gateway.git
 cd llm-gateway
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
@@ -214,10 +342,9 @@ pre-commit install
 ### Running checks
 
 ```bash
-ruff check .                      # lint
-ruff format --check .             # format check
-mypy .                            # type check
-pytest -m unit -v                 # unit tests (234 tests, 90%+ per-file coverage)
+ruff check . && ruff format --check .   # lint + format
+mypy .                                   # strict type check
+pytest -m unit -v                        # unit tests (322 tests, 96% coverage)
 ```
 
 ### Integration tests
@@ -229,10 +356,10 @@ cd integration_tests
 pip install -e .                  # install with llm-gateway as dependency
 
 # Dry-run (mocked, no real LLM calls — default)
-pytest -v
+pytest -v                         # 32 dry-run tests
 
-# Live (real Claude CLI calls — requires `claude` in PATH)
-pytest --run-live -m live -v
+# Live (real LLM calls — requires API keys / claude CLI)
+pytest --run-live -m live -v      # LLM + tokenizer live tests
 ```
 
 Live runs print a session summary:
@@ -253,7 +380,7 @@ Pre-commit mirrors the CI pipeline on every commit:
 - Trailing whitespace and EOF fixes
 - Ruff lint + format
 - Mypy strict type checking
-- Unit tests
+- Unit tests with per-file coverage (90%+ per source file)
 - Integration tests (dry-run)
 
 ```bash
