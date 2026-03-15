@@ -577,3 +577,50 @@ class TestExtractUsageEdgeCases:
         assert usage.input_tokens == 0
         assert usage.output_tokens == 0
         assert usage.total_cost_usd == 0.0
+
+
+@pytest.mark.unit
+class TestGeminiProviderCountTokens:
+    """Tests for GeminiProvider.count_tokens()."""
+
+    def test_count_tokens_returns_positive(self) -> None:
+        """count_tokens should return a positive int for non-empty text (heuristic path)."""
+        GeminiProvider = _import_gemini_provider()
+        provider = GeminiProvider(api_key="test-key")
+        # Force heuristic mode since SDK is mocked
+        from llm_gateway.tokenizers.gemini_tokenizer import GeminiTokenizer
+
+        tok = GeminiTokenizer()
+        tok._initialized = True
+        tok._use_heuristic = True
+        provider._tokenizer = tok
+        result = provider.count_tokens("Hello, world!")
+        assert isinstance(result, int)
+        assert result > 0
+
+    def test_count_tokens_empty_string(self) -> None:
+        """count_tokens should return 0 for empty string."""
+        GeminiProvider = _import_gemini_provider()
+        provider = GeminiProvider(api_key="test-key")
+        assert provider.count_tokens("") == 0
+
+    def test_count_tokens_lazy_init(self) -> None:
+        """Tokenizer should be lazily initialized."""
+        GeminiProvider = _import_gemini_provider()
+        provider = GeminiProvider(api_key="test-key")
+        assert provider._tokenizer is None
+        provider.count_tokens("test")
+        assert provider._tokenizer is not None
+
+    def test_count_tokens_heuristic_calculation(self) -> None:
+        """Gemini heuristic: chars / 3.5."""
+        GeminiProvider = _import_gemini_provider()
+        provider = GeminiProvider(api_key="test-key")
+        from llm_gateway.tokenizers.gemini_tokenizer import GeminiTokenizer
+
+        tok = GeminiTokenizer()
+        tok._initialized = True
+        tok._use_heuristic = True
+        provider._tokenizer = tok
+        # 35 / 3.5 = 10
+        assert provider.count_tokens("a" * 35) == 10

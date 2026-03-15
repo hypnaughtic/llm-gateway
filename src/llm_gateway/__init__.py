@@ -51,6 +51,12 @@ from llm_gateway.testing import (
     FakeImageProvider,
     FakeLLMProvider,
 )
+from llm_gateway.tokenizer import (
+    Tokenizer,
+    build_tokenizer,
+    count_tokens,
+    register_tokenizer,
+)
 from llm_gateway.types import (
     ImageData,
     ImageGenerationResponse,
@@ -85,14 +91,18 @@ __all__ = [
     "ProviderNotFoundError",
     "ResponseValidationError",
     "TokenUsage",
+    "Tokenizer",
     "build_image_provider",
     "build_provider",
+    "build_tokenizer",
     "calculate_cost",
     "calculate_image_cost",
+    "count_tokens",
     "list_image_providers",
     "list_providers",
     "register_image_pricing",
     "register_image_provider",
     "register_pricing",
     "register_provider",
+    "register_tokenizer",
 ]

@@ -44,6 +44,14 @@ class LLMProvider(Protocol):
         """
         ...
 
+    def count_tokens(self, text: str) -> int:
+        """Count tokens in text using this provider's tokenizer.
+
+        Synchronous. Most implementations are local-only; Gemini uses an SDK API call
+        with heuristic fallback.
+        """
+        ...
+
     async def close(self) -> None:
         """Clean up provider resources (HTTP sessions, subprocesses, etc.)."""
         ...
