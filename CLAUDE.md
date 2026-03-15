@@ -14,7 +14,8 @@ Consumer → LLMClient → Provider (via Registry) → LLM API / CLI
 
 - **Single import**: `from llm_gateway import LLMClient` is the only import consumers need.
 - **Config-driven**: `GatewayConfig(BaseSettings)` reads `LLM_*` env vars. Change `.env`, restart — done.
-- **Protocol-based providers**: `LLMProvider` Protocol with `complete()` and `close()`. Providers are registered via factory functions in a lazy registry.
+- **Protocol-based providers**: `LLMProvider` Protocol with `complete()`, `count_tokens()`, and `close()`. Providers are registered via factory functions in a lazy registry.
+- **Token counting**: Provider-aware `count_tokens()` via standalone function or `LLMClient.count_tokens()`. Tokenizer registry with caching and heuristic fallback.
 - **Structured output**: Every `complete()` call takes a `response_model: type[T]` (Pydantic BaseModel) and returns `LLMResponse[T]` with validated content.
 - **Cost tracking**: `CostTracker` accumulates token usage and USD cost per client instance. Supports warn threshold and hard limit.
 - **Observability**: OpenTelemetry spans per LLM call; structlog with JSON/console rendering.
@@ -23,7 +24,7 @@ Consumer → LLMClient → Provider (via Registry) → LLM API / CLI
 
 | File | Purpose |
 |------|---------|
-| `src/llm_gateway/__init__.py` | Public API (19 exports in `__all__`) |
+| `src/llm_gateway/__init__.py` | Public API (23 exports in `__all__`) |
 | `src/llm_gateway/client.py` | `LLMClient` — the single class consumers use |
 | `src/llm_gateway/config.py` | `GatewayConfig(BaseSettings)` with `LLM_` prefix |
 | `src/llm_gateway/types.py` | `TokenUsage` (frozen), `LLMResponse[T]`, `LLMMessage` |
@@ -35,6 +36,10 @@ Consumer → LLMClient → Provider (via Registry) → LLM API / CLI
 | `src/llm_gateway/providers/gemini.py` | `GeminiProvider` (google-genai + instructor) |
 | `src/llm_gateway/providers/gemini_image.py` | `GeminiImageProvider` (google-genai Imagen API) |
 | `src/llm_gateway/providers/local_claude.py` | `LocalClaudeProvider` (claude CLI subprocess) |
+| `src/llm_gateway/tokenizer.py` | `Tokenizer` Protocol, tokenizer registry with caching, `count_tokens()` |
+| `src/llm_gateway/tokenizers/heuristic_tokenizer.py` | `HeuristicTokenizer` — chars/N fallback |
+| `src/llm_gateway/tokenizers/anthropic_tokenizer.py` | `AnthropicTokenizer` — tiktoken BPE local tokenizer |
+| `src/llm_gateway/tokenizers/gemini_tokenizer.py` | `GeminiTokenizer` — google-genai SDK API + heuristic fallback |
 | `src/llm_gateway/observability/tracing.py` | OTEL setup, `traced_llm_call` context manager |
 | `src/llm_gateway/observability/logging.py` | structlog / stdlib fallback |
 
@@ -42,7 +47,7 @@ Consumer → LLMClient → Provider (via Registry) → LLM API / CLI
 
 | Suite | Location | Count | Command |
 |-------|----------|-------|---------|
-| Unit tests | `tests/unit/` | 234+ | `pytest -m unit -v` |
+| Unit tests | `tests/unit/` | 318+ | `pytest -m unit -v` |
 | Integration (dry-run) | `integration_tests/tests/` | 32 | `cd integration_tests && pytest -v` |
 | Integration (live LLM) | `integration_tests/tests/test_live.py` | 10 | `cd integration_tests && pytest --run-live -m live -v` |
 | Integration (live image) | `integration_tests/tests/test_image_e2e.py` | 4 | `cd integration_tests && pytest --run-live -m live tests/test_image_e2e.py -v` |
@@ -63,6 +68,8 @@ Live tests stream DEBUG-level logs of full CLI interactions (prompt sent, raw re
 8. **Live test logging guard**: `_configure_live_logging` fixture sets `gw_logging._CONFIGURED = True` to prevent `configure_logging()` from clearing pytest's `_LiveLoggingStreamHandler`, then sets root logger to DEBUG so provider logs stream live.
 9. **Per-file coverage**: CI and pre-commit enforce 90%+ test coverage per source file (not just project-wide). Uses `scripts/check_per_file_coverage.py` with `coverage.json` output.
 10. **Branch protection**: Main branch requires PR review, passing CI checks, and no direct pushes.
+11. **Tokenizer uses tiktoken (not Anthropic SDK)**: The Anthropic SDK's `count_tokens()` is an API call, not a local tokenizer. `AnthropicTokenizer` uses `tiktoken` with `cl100k_base` encoding for local, fast, exact BPE counts. Falls back to heuristic if tiktoken is unavailable. `tiktoken` is not a declared dependency — it's commonly available but not guaranteed.
+12. **Tokenizer registry is independent of provider registry**: Tokenizers are cached separately in `_TOKENIZER_CACHE`. Providers own their own tokenizer instances (lazy-init in `count_tokens()`), independent of the registry cache.
 
 ## Development Commands
 

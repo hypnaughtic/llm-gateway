@@ -10,6 +10,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from llm_gateway.cost import build_token_usage
 from llm_gateway.exceptions import ProviderError
+from llm_gateway.tokenizers.anthropic_tokenizer import AnthropicTokenizer
 from llm_gateway.types import LLMMessage, LLMResponse, TokenUsage
 
 try:
@@ -51,6 +52,7 @@ class AnthropicProvider:
         )
         self._instructor = instructor.from_anthropic(self._client)
         self._max_retries = max_retries
+        self._tokenizer: AnthropicTokenizer | None = None
 
     @classmethod
     def from_config(cls, config: GatewayConfig) -> AnthropicProvider:
@@ -125,6 +127,12 @@ class AnthropicProvider:
         input_tokens = getattr(usage, "input_tokens", 0) or 0
         output_tokens = getattr(usage, "output_tokens", 0) or 0
         return build_token_usage(model, input_tokens, output_tokens)
+
+    def count_tokens(self, text: str) -> int:
+        """Count tokens using the Anthropic/Claude tokenizer."""
+        if self._tokenizer is None:
+            self._tokenizer = AnthropicTokenizer()
+        return self._tokenizer.count_tokens(text)
 
     async def close(self) -> None:
         """Close the underlying HTTP client."""

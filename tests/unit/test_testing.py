@@ -289,3 +289,33 @@ class TestFakeProviderRegistry:
         provider = build_provider(config)
 
         assert isinstance(provider, FakeLLMProvider)
+
+
+@pytest.mark.unit
+class TestFakeLLMProviderCountTokens:
+    """Tests for FakeLLMProvider.count_tokens()."""
+
+    def test_count_tokens_returns_positive(self) -> None:
+        """count_tokens should return a positive int for non-empty text."""
+        fake = FakeLLMProvider()
+        result = fake.count_tokens("Hello, world!")
+        assert isinstance(result, int)
+        assert result > 0
+
+    def test_count_tokens_empty_string(self) -> None:
+        """count_tokens should return 0 for empty string."""
+        fake = FakeLLMProvider()
+        assert fake.count_tokens("") == 0
+
+    def test_count_tokens_heuristic(self) -> None:
+        """FakeLLMProvider uses heuristic (chars/4)."""
+        fake = FakeLLMProvider()
+        # 40 chars / 4.0 = 10
+        assert fake.count_tokens("a" * 40) == 10
+
+    def test_count_tokens_lazy_init(self) -> None:
+        """Tokenizer should be lazily initialized."""
+        fake = FakeLLMProvider()
+        assert fake._tokenizer is None
+        fake.count_tokens("test")
+        assert fake._tokenizer is not None

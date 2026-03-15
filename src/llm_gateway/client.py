@@ -150,6 +150,19 @@ class LLMClient:
         """Number of LLM calls made on this client instance."""
         return self._cost_tracker.call_count
 
+    def count_tokens(self, text: str) -> int:
+        """Count tokens using the active provider's tokenizer.
+
+        Synchronous. Most providers use local tokenizers; Gemini uses an SDK API call.
+
+        Args:
+            text: The text to tokenize.
+
+        Returns:
+            Number of tokens.
+        """
+        return self._provider.count_tokens(text)
+
     def cost_summary(self) -> dict[str, Any]:
         """Return a summary dict of cost/token usage."""
         return self._cost_tracker.summary()

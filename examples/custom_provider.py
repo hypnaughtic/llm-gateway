@@ -44,6 +44,9 @@ class EchoProvider:
             provider="echo",
         )
 
+    def count_tokens(self, text: str) -> int:
+        return max(1, len(text) // 4) if text else 0
+
     async def close(self) -> None:
         pass
 

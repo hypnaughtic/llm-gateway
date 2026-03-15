@@ -11,6 +11,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from llm_gateway.cost import build_token_usage
 from llm_gateway.exceptions import ProviderError
+from llm_gateway.tokenizers.gemini_tokenizer import GeminiTokenizer
 from llm_gateway.types import LLMMessage, LLMResponse, TokenUsage
 
 try:
@@ -52,6 +53,7 @@ class GeminiProvider:
         )
         self._max_retries = max_retries
         self._timeout_seconds = timeout_seconds
+        self._tokenizer: GeminiTokenizer | None = None
 
     @classmethod
     def from_config(cls, config: GatewayConfig) -> GeminiProvider:
@@ -138,6 +140,12 @@ class GeminiProvider:
         input_tokens = getattr(usage_metadata, "prompt_token_count", 0) or 0
         output_tokens = getattr(usage_metadata, "candidates_token_count", 0) or 0
         return build_token_usage(model, input_tokens, output_tokens)
+
+    def count_tokens(self, text: str) -> int:
+        """Count tokens using the Gemini tokenizer."""
+        if self._tokenizer is None:
+            self._tokenizer = GeminiTokenizer(model=self.DEFAULT_MODEL)
+        return self._tokenizer.count_tokens(text)
 
     async def close(self) -> None:
         """Close resources (no-op for Gemini sync client)."""

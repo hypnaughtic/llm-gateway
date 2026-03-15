@@ -10,13 +10,17 @@ import re
 import shutil
 import time
 from collections.abc import Sequence
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 from pydantic import BaseModel
 
 from llm_gateway.config import GatewayConfig
 from llm_gateway.exceptions import CLINotFoundError, ProviderError, ResponseValidationError
 from llm_gateway.types import LLMMessage, LLMResponse, TokenUsage
+
+if TYPE_CHECKING:
+    from llm_gateway.tokenizers.anthropic_tokenizer import AnthropicTokenizer
+    from llm_gateway.tokenizers.heuristic_tokenizer import HeuristicTokenizer
 
 T = TypeVar("T")
 
@@ -122,6 +126,7 @@ class LocalClaudeProvider:
         self._claude_path = shutil.which("claude")
         if self._claude_path is None:
             raise CLINotFoundError()
+        self._tokenizer: AnthropicTokenizer | HeuristicTokenizer | None = None
 
     @classmethod
     def from_config(cls, config: GatewayConfig) -> LocalClaudeProvider:
@@ -495,6 +500,23 @@ class LocalClaudeProvider:
             input_cost_usd=input_cost,
             output_cost_usd=output_cost,
         )
+
+    def count_tokens(self, text: str) -> int:
+        """Count tokens using the Claude tokenizer (with heuristic fallback)."""
+        if self._tokenizer is None:
+            try:
+                from llm_gateway.tokenizers.anthropic_tokenizer import (
+                    AnthropicTokenizer as _AT,
+                )
+
+                self._tokenizer = _AT()
+            except ImportError:
+                from llm_gateway.tokenizers.heuristic_tokenizer import (
+                    HeuristicTokenizer as _HT,
+                )
+
+                self._tokenizer = _HT(chars_per_token=4.0)
+        return self._tokenizer.count_tokens(text)
 
     async def close(self) -> None:
         """No-op — no persistent resources to clean up."""

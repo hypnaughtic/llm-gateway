@@ -166,3 +166,45 @@ class TestAnthropicProvider:
             await provider.close()
 
             mock_client.close.assert_awaited_once()
+
+
+@pytest.mark.unit
+class TestAnthropicProviderCountTokens:
+    """Tests for AnthropicProvider.count_tokens()."""
+
+    def test_count_tokens_returns_positive(self) -> None:
+        """count_tokens should return a positive int for non-empty text."""
+        from llm_gateway.providers.anthropic import AnthropicProvider
+
+        with (
+            patch("llm_gateway.providers.anthropic.AsyncAnthropic"),
+            patch("llm_gateway.providers.anthropic.instructor"),
+        ):
+            provider = AnthropicProvider(api_key="test-key")
+            result = provider.count_tokens("Hello, world!")
+            assert isinstance(result, int)
+            assert result > 0
+
+    def test_count_tokens_empty_string(self) -> None:
+        """count_tokens should return 0 for empty string."""
+        from llm_gateway.providers.anthropic import AnthropicProvider
+
+        with (
+            patch("llm_gateway.providers.anthropic.AsyncAnthropic"),
+            patch("llm_gateway.providers.anthropic.instructor"),
+        ):
+            provider = AnthropicProvider(api_key="test-key")
+            assert provider.count_tokens("") == 0
+
+    def test_count_tokens_lazy_init(self) -> None:
+        """Tokenizer should be lazily initialized."""
+        from llm_gateway.providers.anthropic import AnthropicProvider
+
+        with (
+            patch("llm_gateway.providers.anthropic.AsyncAnthropic"),
+            patch("llm_gateway.providers.anthropic.instructor"),
+        ):
+            provider = AnthropicProvider(api_key="test-key")
+            assert provider._tokenizer is None
+            provider.count_tokens("test")
+            assert provider._tokenizer is not None

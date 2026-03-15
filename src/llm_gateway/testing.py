@@ -51,6 +51,7 @@ from llm_gateway.types import (
 
 if TYPE_CHECKING:
     from llm_gateway.config import GatewayConfig
+    from llm_gateway.tokenizers.heuristic_tokenizer import HeuristicTokenizer
 
 T = TypeVar("T")
 
@@ -92,6 +93,7 @@ class FakeLLMProvider:
         self._default_input_tokens = default_input_tokens
         self._default_output_tokens = default_output_tokens
         self.calls: list[FakeCall] = []
+        self._tokenizer: HeuristicTokenizer | None = None
 
     def set_response(self, response_model: type[T], response: T) -> None:
         """Pre-configure a response for a specific ``response_model`` class."""
@@ -174,6 +176,16 @@ class FakeLLMProvider:
     def call_count(self) -> int:
         """Number of ``complete()`` calls recorded."""
         return len(self.calls)
+
+    def count_tokens(self, text: str) -> int:
+        """Count tokens using a heuristic tokenizer (chars/4)."""
+        if self._tokenizer is None:
+            from llm_gateway.tokenizers.heuristic_tokenizer import (
+                HeuristicTokenizer as _HT,
+            )
+
+            self._tokenizer = _HT(chars_per_token=4.0)
+        return self._tokenizer.count_tokens(text)
 
     async def close(self) -> None:
         """No-op cleanup."""
