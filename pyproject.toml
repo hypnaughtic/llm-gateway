@@ -115,5 +115,5 @@ omit = [
 fail_under = 90
 
 [[tool.mypy.overrides]]
-module = ["anthropic.*", "instructor.*", "opentelemetry.*", "structlog.*", "google.*", "google.genai.*"]
+module = ["anthropic.*", "instructor.*", "opentelemetry.*", "structlog.*", "google.*", "google.genai.*", "tiktoken.*"]
 ignore_missing_imports = true

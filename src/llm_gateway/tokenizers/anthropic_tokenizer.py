@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ class AnthropicTokenizer:
     HEURISTIC_CHARS_PER_TOKEN = 4.0
 
     def __init__(self) -> None:
-        self._encoding: object | None = None  # tiktoken.Encoding
+        self._encoding: Any = None  # tiktoken.Encoding when available
         self._use_heuristic = False
         self._initialized = False
 
@@ -53,10 +54,8 @@ class AnthropicTokenizer:
             return max(1, int(len(text) / self.HEURISTIC_CHARS_PER_TOKEN))
 
         try:
-            import tiktoken
-
-            encoding: tiktoken.Encoding = self._encoding  # type: ignore[assignment]
-            return len(encoding.encode(text))
+            tokens: list[int] = self._encoding.encode(text)
+            return len(tokens)
         except Exception as exc:
             logger.warning("tiktoken encode failed, falling back to heuristic: %s", exc)
             return max(1, int(len(text) / self.HEURISTIC_CHARS_PER_TOKEN))
